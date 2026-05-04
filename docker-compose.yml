@@ -1,0 +1,20 @@
+services:
+  backend:
+    image: tauseef0007/skill-tracker:v1
+    environment:
+      - DB_HOST=trolley.proxy.rlwy.net
+      - DB_PORT=47081
+      - DB_USER=root
+      - DB_PASSWORD=NhdKFQPznznQEcJOqAYSXLFTLQToAxYx
+      - DB_NAME=railway
+    expose:
+      - "8080"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
