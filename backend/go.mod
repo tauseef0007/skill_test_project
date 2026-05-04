@@ -1,4 +1,4 @@
-module github.com/trainwithshubham/skillpulse
+module github.com/tauseef0007/skill_test_project.git
 
 go 1.26
 
