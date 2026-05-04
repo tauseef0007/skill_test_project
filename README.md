@@ -247,4 +247,3 @@ Same app. Same pipeline shape. Different runtime — and a lot more power.
 
 ## Credits
 
-Built for the [TrainWithShubham](https://www.youtube.com/@TrainWithShubham) community. If this repo helped you understand a real CI/CD pipeline end to end, share it forward — that's how the community grows.
