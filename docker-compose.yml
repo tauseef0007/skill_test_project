@@ -1,6 +1,6 @@
 services:
   backend:
-    image: tauseef0007/skill-tracker:v1
+    image: tauseef0007/skill-tracker:latest
     environment:
       - DB_HOST=trolley.proxy.rlwy.net
       - DB_PORT=47081
@@ -11,9 +11,7 @@ services:
       - "8080"
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: tauseef0007/skill-tracker-frontend:latest
     ports:
       - "80:80"
     depends_on:
