@@ -5,8 +5,8 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
-	"github.com/trainwithshubham/skillpulse/database"
-	"github.com/trainwithshubham/skillpulse/handlers"
+	"github.com/tauseef0007/skill_test_project/database"
+	"github.com/tauseef0007/skill_test_project/handlers"
 )
 
 func main() {
