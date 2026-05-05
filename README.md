@@ -1,249 +1,379 @@
-# SkillPulse — GitHub Actions & Kubernetes Masterclass
+# 🚀 Track Your Skill — DevOps CI/CD Project
 
-A small, real application with a real CI/CD pipeline. The app — SkillPulse — lets you track skills you're learning and the hours you put in. The point isn't the app. The point is everything around it: how a single `git push` becomes a running update on a server in under two minutes, with no human pressing any button.
+> A full-stack skill tracking web app with a complete production-grade DevOps pipeline.
+> Built with Go, Docker, Kubernetes, GitHub Actions, ArgoCD, and Azure.
 
-This repo is the working demo for the **TrainWithShubham GitHub Actions & Kubernetes Masterclass**.
-
-> **New here? Start with the full beginner's guide:** [`docs/skillpulse-cicd-guide.pdf`](docs/skillpulse-cicd-guide.pdf) — a 29-page step-by-step walkthrough covering the foundations (DevOps, CI/CD, containers, GitHub Actions, EC2), how this pipeline is built line-by-line, how to deploy your own copy from scratch, the engineering rationale behind each design choice, and how to talk about this project on your resume and in interviews.
-
----
-
-## Why DevOps matters
-
-For most of software's history, the people who *wrote* software and the people who *ran* it were two different teams with two different goals.
-
-- Developers wanted to ship features.
-- Operations wanted stability.
-
-The fastest way for ops to be stable was to slow developers down. The fastest way for developers to ship was to throw code over the wall. Both teams were right. Both teams were also miserable. And the customer paid the price — releases happened once a quarter, every release was scary, and bugs took weeks to fix.
-
-DevOps is the cultural and technical answer to that: *the same team owns the change all the way to production, and tooling makes that safe.* It's not a job title. It's a way of working that says small, frequent, automated, and reversible beats big, rare, manual, and irreversible — every time.
-
-When DevOps is working you can tell because:
-
-- **Deploys are boring.** Friday afternoon, Monday morning, doesn't matter.
-- **Rollbacks are cheap.** A bad deploy is a 30-second fix, not an incident.
-- **Feedback is fast.** A broken commit fails CI in minutes, not "after QA next sprint."
-- **Ownership is clear.** The person who wrote the code is the person who watches it ship.
-
-You get there by automating the path from a developer's laptop to production. That automation is called a **pipeline**.
+![App Live](https://img.shields.io/badge/App-Live-brightgreen)
+![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-blue)
+![K8s](https://img.shields.io/badge/Orchestration-Kubernetes-326CE5)
+![ArgoCD](https://img.shields.io/badge/GitOps-ArgoCD-orange)
+![Azure](https://img.shields.io/badge/Cloud-Azure-0078D4)
 
 ---
 
-## Why CI/CD is the heart of DevOps
+## 📋 Table of Contents
 
-CI/CD is two ideas wearing one acronym.
-
-- **Continuous Integration** — every change, from every developer, gets built and tested automatically the moment it lands. You catch breakage in minutes, not days. Merge conflicts shrink because nobody's branch lives for two weeks.
-- **Continuous Delivery / Deployment** — every change that passes CI is automatically packaged and shipped — to staging, or all the way to production. There is no "deploy day." Every commit is a candidate release.
-
-The reason this matters: the cost of fixing a bug grows with the time between writing it and finding it. CI/CD shortens that gap to minutes. The reason it's hard: the only way to make it work is to *automate everything*. Build, test, package, deploy, verify. No "just run this script on my laptop" steps. If a human has to remember it, it will eventually be forgotten — and then it will fail at 2 a.m.
-
----
-
-## Why GitHub Actions
-
-A pipeline needs a runner — something that watches your repo, executes your build/test/deploy steps, and reports back. Historically that meant standing up a Jenkins server, paying for CircleCI, or wiring something custom. All of those still work; none of them are the lowest-friction option in 2026.
-
-GitHub Actions wins on three things:
-
-1. **It lives where the code lives.** No separate server, no separate auth, no separate UI. Your `.github/workflows/*.yml` files are part of the repo — they evolve with the code, get reviewed in the same PRs, and survive every clone.
-2. **It's free for public repos and generous for private ones.** A complete CI/CD pipeline costs zero rupees to start.
-3. **The Marketplace is enormous.** Need to SSH into a server? `appleboy/ssh-action`. Need to log in to Docker Hub? `docker/login-action`. You compose pre-built blocks instead of writing bash from scratch.
-
-The trade-off is GitHub lock-in. For most teams, that's a fair price for the integration.
+- [About](#about)
+- [Tech Stack](#tech-stack)
+- [Architecture](#architecture)
+- [Pipeline Flow](#pipeline-flow)
+- [Project Structure](#project-structure)
+- [Local Setup](#local-setup)
+- [Docker Setup](#docker-setup)
+- [Kubernetes Setup](#kubernetes-setup)
+- [CI/CD Pipeline](#cicd-pipeline)
+- [ArgoCD GitOps](#argocd-gitops)
+- [Live URLs](#live-urls)
 
 ---
 
-## What this project demonstrates
+## 📖 About
 
-A real pipeline, end to end, in roughly 50 lines of YAML.
+**Track Your Skill** is a web application that helps users track their skills and learning sessions. The real focus of this project is the **DevOps pipeline** — from a simple `git push` to a fully automated production deployment.
+
+---
+
+## 🛠 Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Backend | Go (Golang) + Gin Framework |
+| Frontend | HTML, CSS, JavaScript + Nginx |
+| Database | MySQL (Azure Database for MySQL Flexible Server) |
+| Containerization | Docker + Docker Compose |
+| Container Registry | DockerHub |
+| Orchestration | Kubernetes (Minikube) |
+| GitOps | ArgoCD |
+| CI/CD | GitHub Actions |
+| Cloud | Microsoft Azure (VM + MySQL) |
+
+---
+
+## 🏗 Architecture
 
 ```
-┌─────────────┐     git push        ┌──────────────────┐
-│  Developer  ├────────────────────▶│  GitHub Repo     │
-└─────────────┘                     └────────┬─────────┘
-                                             │ on: push (main)
-                                             ▼
-                                    ┌──────────────────┐
-                                    │  CI Workflow     │
-                                    │  - build images  │
-                                    │  - tag :sha      │
-                                    │  - tag :latest   │
-                                    │  - push to Hub   │
-                                    └────────┬─────────┘
-                                             │ workflow_run: success
-                                             ▼
-                                    ┌──────────────────┐
-                                    │  CD Workflow     │
-                                    │  - SSH to EC2    │
-                                    │  - git pull      │
-                                    │  - compose pull  │
-                                    │  - compose up -d │
-                                    └────────┬─────────┘
-                                             │
-                                             ▼
-                                    ┌──────────────────┐
-                                    │  EC2: live app   │
-                                    │  http://<host>   │
-                                    └──────────────────┘
+┌─────────────────────────────────────────────────────┐
+│                   Azure VM (Ubuntu)                  │
+│                                                      │
+│  ┌─────────────── Kubernetes Cluster ─────────────┐ │
+│  │                                                 │ │
+│  │   ┌──────────────┐    ┌──────────────┐         │ │
+│  │   │ frontend Pod │    │ frontend Pod │         │ │
+│  │   │  (Nginx)     │    │  (Nginx)     │         │ │
+│  │   └──────┬───────┘    └──────┬───────┘         │ │
+│  │          │    Service (80)   │                  │ │
+│  │          └────────┬──────────┘                  │ │
+│  │                   │ /api/*                      │ │
+│  │   ┌──────────────┐│   ┌──────────────┐         │ │
+│  │   │ backend Pod  ││   │ backend Pod  │         │ │
+│  │   │  (Go + Gin)  ││   │  (Go + Gin)  │         │ │
+│  │   └──────────────┘│   └──────────────┘         │ │
+│  │          Service (8080)                         │ │
+│  │                   │                             │ │
+│  │   ┌───────────────┴──────────┐                 │ │
+│  │   │     ArgoCD               │                 │ │
+│  │   │  (GitOps Controller)     │                 │ │
+│  │   └──────────────────────────┘                 │ │
+│  └─────────────────────────────────────────────────┘ │
+│                          │                           │
+└──────────────────────────┼───────────────────────────┘
+                           │
+              ┌────────────▼────────────┐
+              │  Azure MySQL Flexible   │
+              │  skill-tracker-db       │
+              │  (skillpulse database)  │
+              └─────────────────────────┘
 ```
 
-### CI — `.github/workflows/ci.yml`
+---
 
-Triggered on every push to `main`. It does four things:
+## 🔄 Pipeline Flow
 
-1. **Checks out the code.** A fresh clone in a clean Ubuntu runner — no laptop state to leak.
-2. **Builds two Docker images.** A Go backend and an Nginx-served frontend. Both are multi-stage so the final images are small.
-3. **Tags each image twice.** With the commit SHA (`:abc1234…`) and with `:latest`. The SHA tag is your rollback handle — you can always pin a deploy to an exact commit. The `:latest` tag is what production pulls.
-4. **Pushes both to Docker Hub.** Authenticated with secrets (`DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`) — never plaintext credentials in the repo.
+```
+Developer → git push → GitHub
+                          │
+                          ▼
+              GitHub Actions (CI)
+                ├── Checkout code
+                ├── Setup Go 1.26
+                ├── go mod download
+                └── go build ./...
+                          │
+                          ▼
+              GitHub Actions (Docker)
+                ├── Login to DockerHub
+                ├── Build backend image
+                ├── Push tauseef0007/skill-tracker:latest
+                ├── Build frontend image
+                └── Push tauseef0007/skill-tracker-frontend:latest
+                          │
+                          ▼
+              ArgoCD (GitOps)
+                ├── Watches GitHub repo (k8s/ folder)
+                ├── Detects changes automatically
+                ├── Applies manifests to Kubernetes
+                └── Rolling update (zero downtime)
+                          │
+                          ▼
+              Kubernetes Cluster
+                ├── 2x backend pods running
+                ├── 2x frontend pods running
+                ├── Services load balancing
+                └── Self-healing enabled
+                          │
+                          ▼
+              App Live! 🎉
+```
 
-The non-obvious lesson: **CI doesn't just test your code. It produces an artifact.** That artifact — the image — is what production runs. If the artifact is built consistently in CI, it's the same in dev, staging, and prod. "Works on my machine" stops being a possibility.
+---
 
-### CD — `.github/workflows/cd.yml`
+## 📁 Project Structure
 
-Triggered automatically when CI completes successfully (`workflow_run` + a `conclusion == 'success'` gate). Skipped if CI failed — you cannot deploy a broken build.
+```
+track_your_skill/
+├── backend/                    # Go API Server
+│   ├── database/
+│   │   └── db.go              # MySQL connection
+│   ├── handlers/
+│   │   ├── skills.go          # Skills CRUD
+│   │   ├── dashboard.go       # Dashboard stats
+│   │   └── logs.go            # Learning logs
+│   ├── models/
+│   │   └── skill.go           # Data models
+│   ├── main.go                # Entry point
+│   ├── go.mod
+│   ├── go.sum
+│   └── Dockerfile             # Multi-stage build
+├── frontend/                  # Static Web App
+│   ├── css/style.css
+│   ├── js/app.js
+│   ├── index.html
+│   └── Dockerfile             # Nginx server
+├── k8s/                       # Kubernetes Manifests
+│   ├── backend-deployment.yaml
+│   ├── frontend-deployment.yaml
+│   └── secret.yaml            # DB credentials (gitignored)
+├── mysql/
+│   └── init.sql               # Database schema
+├── .github/
+│   └── workflows/
+│       └── ci-cd.yml          # GitHub Actions pipeline
+├── docker-compose.yml         # Local development
+├── nginx.conf                 # Reverse proxy config
+└── README.md
+```
 
-It SSHes into an EC2 instance and runs:
+---
 
+## 💻 Local Setup
+
+### Prerequisites
+- Go 1.26+
+- Docker & Docker Compose
+- MySQL (or use Docker)
+
+### Clone the repo
 ```bash
-if [ ! -d ~/skillpulse ]; then
-  git clone <this repo> ~/skillpulse
-fi
-cd ~/skillpulse
-git pull origin main
-[ -f .env ] || { echo "ERROR: .env missing"; exit 1; }
-docker compose pull
+git clone https://github.com/tauseef0007/skill_test_project.git
+cd skill_test_project
+```
+
+### Run with Docker Compose
+```bash
+# Set environment variables
+export DB_HOST=your-db-host
+export DB_PORT=3306
+export DB_USER=your-user
+export DB_PASSWORD=your-password
+export DB_NAME=skillpulse
+
+# Start all services
 docker compose up -d
-docker image prune -f
-```
 
-Every line earns its place:
-
-- The `if [ ! -d ... ]` makes the script **idempotent** — the same script runs whether it's the first deploy or the hundredth.
-- The `.env` check fails *loudly* with a useful message instead of letting `docker compose` produce a cryptic error about missing variables.
-- `docker compose pull` brings in the image you just built. `up -d` only recreates containers whose image actually changed — backend and DB don't get bounced if you only edited frontend HTML.
-- `docker image prune -f` keeps the EC2 disk from filling up with old image layers over weeks of deploys.
-
-### Secrets used
-
-| Secret | What it is |
-|---|---|
-| `DOCKERHUB_USERNAME` | Your Docker Hub account name |
-| `DOCKERHUB_TOKEN` | A Docker Hub Personal Access Token with read+write scope |
-| `EC2_HOST` | Public IP or DNS of the deploy target |
-| `EC2_USER` | Linux user on the EC2 (typically `ubuntu`) |
-| `EC2_SSH_KEY` | Private key contents — paste the entire `.pem` file as the secret value |
-
-Set them at `Settings → Secrets and variables → Actions` on your fork.
-
----
-
-## The application itself
-
-A three-tier app — kept tiny on purpose so the pipeline is the star.
-
-| Tier | Tech | What it does |
-|---|---|---|
-| Frontend | HTML + CSS + vanilla JS, served by Nginx | UI for adding skills and logging hours |
-| Backend | Go 1.26 + Gin | REST API at `/api/...` |
-| Database | MySQL 8.4 | Stores skills and learning logs |
-
-Nginx in the frontend image also reverse-proxies `/api/` and `/health` to the backend, so the public surface is a single port (`80`).
-
-API surface:
-
-```
-GET    /api/skills              list skills + total hours
-POST   /api/skills              create skill
-GET    /api/skills/:id          one skill + its logs
-DELETE /api/skills/:id          delete skill (cascades logs)
-POST   /api/skills/:id/log      log a study session
-GET    /api/dashboard           summary counters
-GET    /health                  DB ping for healthchecks
+# Check status
+docker ps
+curl http://localhost/health
 ```
 
 ---
 
-## Run it locally
+## 🐳 Docker Setup
 
+### Build Images
 ```bash
-cp .env.example .env             # fill in DOCKERHUB_USERNAME (anything works for local)
-docker compose up -d --build
+# Backend
+cd backend
+docker build -t tauseef0007/skill-tracker:latest .
+
+# Frontend
+cd ../frontend
+docker build -t tauseef0007/skill-tracker-frontend:latest .
 ```
 
-Open http://localhost. Backend port 8080 is intentionally not exposed — all traffic goes through Nginx, exactly like production.
-
-To tear down:
-
+### Push to DockerHub
 ```bash
-docker compose down -v           # -v also drops the MySQL volume
+docker push tauseef0007/skill-tracker:latest
+docker push tauseef0007/skill-tracker-frontend:latest
+```
+
+### Pull from DockerHub
+```bash
+docker pull tauseef0007/skill-tracker:latest
+docker pull tauseef0007/skill-tracker-frontend:latest
 ```
 
 ---
 
-## Deploy your own copy
+## ☸️ Kubernetes Setup
 
-1. **Fork this repo.**
-2. **Provision an Ubuntu EC2** (any size; `t3.micro` is enough to learn). Open ports `22` (your IP) and `80` (the world). Note the public IP and the `.pem` key.
-3. **Install Docker on the EC2:**
-   ```bash
-   curl -fsSL https://get.docker.com | sh
-   sudo usermod -aG docker $USER && newgrp docker
-   ```
-4. **Create `~/skillpulse/.env` on the EC2** with the same variables as `.env.example` plus your Docker Hub username.
-5. **Add the five secrets** to your fork's repo settings (see table above).
-6. **Push any commit to `main`.** Watch the Actions tab. ~90 seconds later, your EC2 IP serves the app.
+### Prerequisites
+- Minikube or any K8s cluster
+- kubectl configured
 
-Break it on purpose to learn:
+### Deploy
+```bash
+# Create DB secret (update values first!)
+kubectl apply -f k8s/secret.yaml
 
-- Push a commit that fails to build → CD is *skipped*, not run-and-failed.
-- Rotate the Docker Hub token → next CI fails at the login step. Now you know what an expired credential looks like in logs.
-- Delete `~/skillpulse/.env` on the EC2 → next CD exits with the explicit error message instead of a cryptic compose failure.
+# Deploy backend
+kubectl apply -f k8s/backend-deployment.yaml
 
----
+# Deploy frontend
+kubectl apply -f k8s/frontend-deployment.yaml
 
-## Project layout
-
+# Check status
+kubectl get pods
+kubectl get services
 ```
-backend/                Go service
-  Dockerfile            multi-stage: golang:1.26-alpine → alpine:3.23
-  main.go               wires routes, reads PORT env
-  database/db.go        connects to MySQL with retry-loop
-  handlers/             skills, logs, dashboard endpoints
-  models/               request/response structs
 
-frontend/               static UI + Nginx config
-  Dockerfile            FROM nginx:alpine, copies html/css/js + nginx.conf
-  index.html, css/, js/ vanilla — no build step
-  nginx.conf            serves the site, proxies /api/ to backend:8080
+### Access the app
+```bash
+minikube service frontend --url
+```
 
-mysql/init.sql          schema + seed data, mounted into the MySQL container
+### Useful Commands
+```bash
+# Scale backend to 4 replicas
+kubectl scale deployment backend --replicas=4
 
-docker-compose.yml      three services: db, backend, frontend
-.env.example            copy to .env
+# Restart deployment
+kubectl rollout restart deployment backend
 
-.github/workflows/
-  ci.yml                build + push images on every main push
-  cd.yml                SSH + redeploy on CI success
+# View logs
+kubectl logs -l app=backend
+
+# Describe pod
+kubectl describe pod <pod-name>
 ```
 
 ---
 
-## Where this goes next
+## ⚙️ CI/CD Pipeline
 
-This is the **GitHub Actions** half of the masterclass. The pipeline currently deploys to a single EC2 via SSH + docker compose — a fine starting point, and the most common "first real pipeline" in the industry.
+The pipeline has 3 jobs defined in `.github/workflows/ci-cd.yml`:
 
-The Kubernetes half of the course evolves this same app onto a cluster:
+### Job 1: Build & Test
+- Checks out code
+- Sets up Go 1.26
+- Downloads dependencies
+- Builds the Go binary (catches compile errors)
 
-- Replace `docker compose` with manifests (Deployment, Service, Ingress).
-- Replace SSH-driven deploys with `kubectl apply` from CI, then with GitOps (Argo CD / Flux).
-- Add health checks, autoscaling, rolling updates with no downtime, secrets via Kubernetes Secrets or external managers.
-- Run the cluster on EKS / GKE / AKS or local (kind / minikube).
+### Job 2: Docker Build & Push
+- Runs only if Job 1 passes
+- Logs into DockerHub using secrets
+- Builds backend Docker image (multi-stage)
+- Builds frontend Docker image
+- Pushes both images with `latest` and `git-sha` tags
 
-Same app. Same pipeline shape. Different runtime — and a lot more power.
+### Job 3: Deploy to VM
+- Runs only if Job 2 passes
+- SSHs into Azure VM using private key
+- Pulls latest Docker images
+- Restarts Docker Compose services
+- Runs health check
+
+### GitHub Secrets Required
+```
+DOCKER_USERNAME   → DockerHub username
+DOCKER_PASSWORD   → DockerHub access token
+VM_HOST           → Azure VM public IP
+VM_USER           → VM username
+VM_SSH_KEY        → SSH private key
+```
 
 ---
 
-## Credits
+## 🔁 ArgoCD GitOps
 
+ArgoCD watches the `k8s/` folder in this repo and automatically syncs changes to the Kubernetes cluster.
+
+### Setup
+```bash
+# Install ArgoCD
+kubectl create namespace argocd
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+# Create application
+argocd app create skill-tracker \
+  --repo https://github.com/tauseef0007/skill_test_project \
+  --path k8s \
+  --dest-server https://kubernetes.default.svc \
+  --dest-namespace default \
+  --sync-policy automated \
+  --auto-prune \
+  --self-heal
+```
+
+### How it works
+1. You push a change to `k8s/` folder
+2. ArgoCD detects the change within 3 minutes
+3. ArgoCD applies the new manifests to Kubernetes
+4. Kubernetes does a rolling update (zero downtime)
+5. App is updated automatically — no manual steps!
+
+### Access ArgoCD UI
+```bash
+# Port forward
+kubectl port-forward svc/argocd-server -n argocd 8090:443 --address 0.0.0.0
+
+# Get admin password
+kubectl get secret argocd-initial-admin-secret -n argocd \
+  -o jsonpath="{.data.password}" | base64 -d
+```
+
+---
+
+## 🌐 Live URLs
+
+| Service | URL |
+|---------|-----|
+| Frontend App | http://4.239.81.116:30080 |
+| ArgoCD UI | https://4.239.81.116:8090 |
+| Health Check | http://4.239.81.116:30080/health |
+| Skills API | http://4.239.81.116:30080/api/skills |
+| Dashboard API | http://4.239.81.116:30080/api/dashboard |
+
+---
+
+## 🗺 Roadmap
+
+- [x] Phase 1: Docker + DockerHub
+- [x] Phase 2: GitHub Actions CI/CD
+- [x] Phase 3: Kubernetes (Minikube)
+- [x] Phase 4: ArgoCD GitOps
+- [x] Phase 5: Azure MySQL Database
+- [ ] Phase 6: Azure AKS (Managed Kubernetes)
+- [ ] Phase 7: Helm Charts
+- [ ] Phase 8: Monitoring (Prometheus + Grafana)
+
+---
+
+## 👨‍💻 Author
+
+**Tauseef Khan**
+- GitHub: [@tauseef0007](https://github.com/tauseef0007)
+- Project: [skill_test_project](https://github.com/tauseef0007/skill_test_project)
+
+---
+
+> *"Built with ❤️ while learning DevOps from scratch"*
