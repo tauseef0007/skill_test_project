@@ -18,4 +18,6 @@ Thumbs.db
 CLAUDE.md
 
 # Intermediate PDF render output (regenerated from .md + .css)
-docs/skillpulse-cicd-guide.html
+
+git add k8s/backend-deployment.yaml
+git add k8s/frontend-deployment.yamlk8s/secret.yaml
